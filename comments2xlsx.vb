@@ -25,12 +25,14 @@ Sub exportComments()
 
         ' Create Heading
         HeadingRow = 1
-        .Cells(HeadingRow, 1).Formula = "Comment"
+        .Cells(HeadingRow, 1).Formula = "Comment ID"
         .Cells(HeadingRow, 2).Formula = "Page"
         .Cells(HeadingRow, 3).Formula = "Paragraph"
         .Cells(HeadingRow, 4).Formula = "Comment"
         .Cells(HeadingRow, 5).Formula = "Reviewer"
         .Cells(HeadingRow, 6).Formula = "Date"
+        .Cells(HeadingRow, 7).Formula = "Acceptance"
+        .Cells(HeadingRow, 8).Formula = "WTF?"
 
         strSection = "preamble" 'all sections before "1." will be labeled as "preamble"
         strTemp = "preamble"
@@ -48,9 +50,10 @@ Sub exportComments()
             .Cells(i + HeadingRow, 2).Formula = ActiveDocument.Comments(i).Reference.Information(wdActiveEndAdjustedPageNumber)
             .Cells(i + HeadingRow, 3).Value = strSection
             .Cells(i + HeadingRow, 4).Formula = ActiveDocument.Comments(i).Range
-            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Initial
+            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Author
             .Cells(i + HeadingRow, 6).Formula = Format(ActiveDocument.Comments(i).Date, "dd/MM/yyyy")
-            .Cells(i + HeadingRow, 7).Formula = ActiveDocument.Comments(i).Range.ListFormat.ListString
+            .Cells(i + HeadingRow, 7).Formula = ActiveDocument.Comments(i).Done
+            .Cells(i + HeadingRow, 8).Formula = ActiveDocument.Comments(i).Range.ListFormat.ListString
         Next i
     End With
     Set xlWB = Nothing
