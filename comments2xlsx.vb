@@ -73,7 +73,7 @@ Sub ExportComments()
 
     ' Save the Excel file with the desired name
     Dim fileName As String
-    fileName = GetSourceFileName(ActiveDocument) & "_comment_output_" & Format(Now(), "YYYY-MM-DD")
+    fileName = GetSourceFileName(ActiveDocument) & "_comment_output_" & Format(Now(), "YYYY-MM-DD") & ".xlsx"
     xlWB.SaveAs fileName
 
     Set xlWB = Nothing
