@@ -32,7 +32,6 @@ Sub exportComments()
         .Cells(HeadingRow, 5).Formula = "Reviewer"
         .Cells(HeadingRow, 6).Formula = "Date"
         .Cells(HeadingRow, 7).Formula = "Acceptance"
-        .Cells(HeadingRow, 8).Formula = "WTF?"
 
         strSection = "preamble" 'all sections before "1." will be labeled as "preamble"
         strTemp = "preamble"
