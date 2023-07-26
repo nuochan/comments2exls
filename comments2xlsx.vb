@@ -24,11 +24,12 @@ Sub ExportComments()
         .Cells(HeadingRow, 1).Formula = "Comment ID"
         .Cells(HeadingRow, 2).Formula = "Page"
         .Cells(HeadingRow, 3).Formula = "Paragraph"
-        .Cells(HeadingRow, 4).Formula = "Conversation"
-        .Cells(HeadingRow, 5).Formula = "Comment"
+        .Cells(HeadingRow, 5).Formula = "Thread"
+        .Cells(HeadingRow, 4).Formula = "Comment"
         .Cells(HeadingRow, 6).Formula = "Reviewer"
-        .Cells(HeadingRow, 7).Formula = "Date"
-        .Cells(HeadingRow, 8).Formula = "Acceptance"
+        .Cells(HeadingRow, 7).Formula = "Ministry"
+        .Cells(HeadingRow, 8).Formula = "Date"
+        .Cells(HeadingRow, 9).Formula = "Acceptance"
     End With
 
     ' Find the starting page number of the document
@@ -44,19 +45,27 @@ Sub ExportComments()
             .Cells(i + HeadingRow, 1).Formula = ActiveDocument.Comments(i).Index
             .Cells(i + HeadingRow, 2).Value = GetCommentPageNumber(ActiveDocument.Comments(i), docStartPage) ' Get the page number
             .Cells(i + HeadingRow, 3).Value = strSection
-            .Cells(i + HeadingRow, 4).Value = GetCommentReplyTo(ActiveDocument.Comments(i)) ' Get the comment it was replying to
-            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Range
+            .Cells(i + HeadingRow, 5).Value = GetCommentReplyTo(ActiveDocument.Comments(i)) ' Get the comment it was replying to
+            .Cells(i + HeadingRow, 4).Formula = ActiveDocument.Comments(i).Range
 
             Dim authorName As String
-            authorName = ActiveDocument.Comments(i).author
-            RemoveAuthorSuffix authorName ' Remove suffix from author's name
-            .Cells(i + HeadingRow, 6).Value = authorName
+            Dim ministryCode As String ' New variable to hold the Ministry code
 
-            .Cells(i + HeadingRow, 7).Value = Format(ActiveDocument.Comments(i).Date, "DD-MM-YYYY") ' Format the date
-            .Cells(i + HeadingRow, 8).Formula = ActiveDocument.Comments(i).Done
+            ' Get the author name and extract the Ministry code
+            ExtractAuthorAndMinistryCode ActiveDocument.Comments(i).author, authorName, ministryCode
+
+            .Cells(i + HeadingRow, 6).Value = authorName
+            
+            ' Remove ":EX" or ":IN" from the Ministry code
+            ministryCode = RemoveEXINFromMinistryCode(ministryCode)
+
+            .Cells(i + HeadingRow, 7).Value = ministryCode ' Populate the Ministry column
+
+            .Cells(i + HeadingRow, 8).Value = Format(ActiveDocument.Comments(i).Date, "DD-MM-YYYY") ' Format the date
+            .Cells(i + HeadingRow, 9).Formula = ActiveDocument.Comments(i).Done
 
             ' Check if the paragraph is "Not a reply" and apply conditional formatting
-            If .Cells(i + HeadingRow, 4).Value = "New Conversation" Then
+            If .Cells(i + HeadingRow, 5).Value = "New Thread" Then
                 .Rows(i + HeadingRow).Interior.Color = RGB(191, 225, 255) ' Light blue background
             End If
         End With
@@ -121,7 +130,7 @@ Function GetCommentReplyTo(comment As comment) As String
         End If
     Next replyComment
 
-    GetCommentReplyTo = "New Conversation"
+    GetCommentReplyTo = "New Thread"
 End Function
 
 Function GetCommentPageNumber(comment As comment, docStartPage As Long) As Long
@@ -166,8 +175,23 @@ Function GetDocumentStartPage(doc As Document) As Long
     GetDocumentStartPage = startPage
 End Function
 
-Sub RemoveAuthorSuffix(ByRef author As String)
-    ' Remove ":EX" or ":IN" suffix from the author's name
-    author = Replace(author, ":EX", "")
-    author = Replace(author, ":IN", "")
-End Sub
+Function ExtractAuthorAndMinistryCode(ByVal author As String, ByRef cleanedAuthor As String, ByRef ministryCode As String)
+    ' Extract the author's name and Ministry code from the given author string
+    cleanedAuthor = author
+    ministryCode = ""
+
+    ' Look for a space-separated code at the end of the author's name
+    Dim spacePosition As Integer
+    spacePosition = InStrRev(author, " ")
+
+    If spacePosition > 0 Then
+        cleanedAuthor = Trim(Left(author, spacePosition - 1))
+        ministryCode = Trim(Mid(author, spacePosition + 1))
+    End If
+End Function
+
+Function RemoveEXINFromMinistryCode(ByVal code As String) As String
+    ' Remove ":EX" or ":IN" from the Ministry code
+    RemoveEXINFromMinistryCode = Replace(code, ":EX", "")
+    RemoveEXINFromMinistryCode = Replace(RemoveEXINFromMinistryCode, ":IN", "")
+End Function
