@@ -1,84 +1,173 @@
-Sub exportComments()
-    ' Forked from https://gist.github.com/razorgoto/cff2ffd5da93220c643c, updated to work with Library 16.0.
-    ' This also fixes a bug where it crashed if there was a comment on the very first header.
-    
+Sub ExportComments()
     ' Exports comments from a MS Word document to Excel and associates them with the heading paragraphs
     ' they are included in. Useful for outline numbered section, i.e. 3.2.1.5....
-    ' Thanks to Graham Mayor, http://answers.microsoft.com/en-us/office/forum/office_2007-customize/export-word-review-comments-in-excel/54818c46-b7d2-416c-a4e3-3131ab68809c
-    ' and Wade Tai, http://msdn.microsoft.com/en-us/library/aa140225(v=office.10).aspx
-    ' Need to set a VBA reference to "Microsoft Excel 16.0 Object Library". 14.0 works too.
-    ' Go to the Tools Menu, and click "Reference"
 
     Dim xlApp As Excel.Application
     Dim xlWB As Excel.Workbook
     Dim i As Integer, HeadingRow As Integer
     Dim objPara As Paragraph
-    Dim objComment As Comment
+    Dim objComment As comment
     Dim strSection As String
     Dim strTemp
     Dim myRange As Range
 
+    On Error Resume Next ' Enable error handling
+
+    ' Create Excel Application and Workbook
     Set xlApp = CreateObject("Excel.Application")
     xlApp.Visible = True
     Set xlWB = xlApp.Workbooks.Add 'create a new workbook
-    With xlWB.Worksheets(1)
 
-        ' Create Heading
-        HeadingRow = 1
+    ' Set the heading row in Excel
+    HeadingRow = 1
+    With xlWB.Worksheets(1)
         .Cells(HeadingRow, 1).Formula = "Comment ID"
         .Cells(HeadingRow, 2).Formula = "Page"
         .Cells(HeadingRow, 3).Formula = "Paragraph"
-        .Cells(HeadingRow, 4).Formula = "Comment"
-        .Cells(HeadingRow, 5).Formula = "Reviewer"
-        .Cells(HeadingRow, 6).Formula = "Date"
-        .Cells(HeadingRow, 7).Formula = "Acceptance"
-
-        strSection = "preamble" 'all sections before "1." will be labeled as "preamble"
-        strTemp = "preamble"
-        If ActiveDocument.Comments.Count = 0 Then
-            MsgBox ("No comments")
-            Exit Sub
-        End If
-
-        For i = 1 To ActiveDocument.Comments.Count
-            Set myRange = ActiveDocument.Comments(i).Scope
-            strSection = ParentLevel(myRange.Paragraphs(1)) ' find the section heading for this comment
-
-            'MsgBox strSection
-            .Cells(i + HeadingRow, 1).Formula = ActiveDocument.Comments(i).Index
-            .Cells(i + HeadingRow, 2).Formula = ActiveDocument.Comments(i).Reference.Information(wdActiveEndAdjustedPageNumber)
-            .Cells(i + HeadingRow, 3).Value = strSection
-            .Cells(i + HeadingRow, 4).Formula = ActiveDocument.Comments(i).Range
-            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Author
-            .Cells(i + HeadingRow, 6).Formula = Format(ActiveDocument.Comments(i).Date, "dd/MM/yyyy")
-            .Cells(i + HeadingRow, 7).Formula = ActiveDocument.Comments(i).Done
-            .Cells(i + HeadingRow, 8).Formula = ActiveDocument.Comments(i).Range.ListFormat.ListString
-        Next i
+        .Cells(HeadingRow, 4).Formula = "Conversation"
+        .Cells(HeadingRow, 5).Formula = "Comment"
+        .Cells(HeadingRow, 6).Formula = "Reviewer"
+        .Cells(HeadingRow, 7).Formula = "Date"
+        .Cells(HeadingRow, 8).Formula = "Acceptance"
     End With
+
+    ' Find the starting page number of the document
+    Dim docStartPage As Long
+    docStartPage = GetDocumentStartPage(ActiveDocument)
+
+    ' Loop through each comment in the document
+    For i = 1 To ActiveDocument.Comments.Count
+        Set myRange = ActiveDocument.Comments(i).Scope
+        strSection = ParentLevel(myRange.Paragraphs(1)) ' find the section heading for this comment
+
+        With xlWB.Worksheets(1)
+            .Cells(i + HeadingRow, 1).Formula = ActiveDocument.Comments(i).Index
+            .Cells(i + HeadingRow, 2).Value = GetCommentPageNumber(ActiveDocument.Comments(i), docStartPage) ' Get the page number
+            .Cells(i + HeadingRow, 3).Value = strSection
+            .Cells(i + HeadingRow, 4).Value = GetCommentReplyTo(ActiveDocument.Comments(i)) ' Get the comment it was replying to
+            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Range
+
+            Dim authorName As String
+            authorName = ActiveDocument.Comments(i).author
+            RemoveAuthorSuffix authorName ' Remove suffix from author's name
+            .Cells(i + HeadingRow, 6).Value = authorName
+
+            .Cells(i + HeadingRow, 7).Value = Format(ActiveDocument.Comments(i).Date, "DD-MM-YYYY") ' Format the date
+            .Cells(i + HeadingRow, 8).Formula = ActiveDocument.Comments(i).Done
+
+            ' Check if the paragraph is "Not a reply" and apply conditional formatting
+            If .Cells(i + HeadingRow, 4).Value = "New Conversation" Then
+                .Rows(i + HeadingRow).Interior.Color = RGB(191, 225, 255) ' Light blue background
+            End If
+        End With
+    Next i
+
+    ' Save the Excel file with the desired name
+    Dim fileName As String
+    fileName = GetSourceFileName(ActiveDocument) & "_comment_output_" & Format(Now(), "YYYY-MM-DD")
+    xlWB.SaveAs fileName
+
     Set xlWB = Nothing
     Set xlApp = Nothing
 End Sub
 
-
-Function ParentLevel(ByVal Para As Word.Paragraph) As String
-    'From Tony Jollans
+Function ParentLevel(ByVal para As Word.Paragraph) As String
     ' Finds the first outlined numbered paragraph above the given paragraph object
+
+    On Error Resume Next ' Enable error handling
+
     Dim ParaAbove As Word.Paragraph
-    Set ParaAbove = Para
-    sStyle = Para.Range.ParagraphStyle
+    Set ParaAbove = para
+    sStyle = para.Range.ParagraphStyle
     sStyle = Left(sStyle, 4)
     If sStyle = "Head" Then
         GoTo Skip
     End If
-    Do While ParaAbove.OutlineLevel = Para.OutlineLevel
+    Do While ParaAbove.OutlineLevel = para.OutlineLevel
         If ParaAbove.Previous Is Nothing Then
             Exit Do
         End If
         Set ParaAbove = ParaAbove.Previous
     Loop
+
 Skip:
     strTitle = ParaAbove.Range.Text
     strTitle = Left(strTitle, Len(strTitle) - 1)
     ParentLevel = ParaAbove.Range.ListFormat.ListString & " " & strTitle
 End Function
 
+Function GetCommentReplyTo(comment As comment) As String
+    ' Get the text of the comment that the input comment is replying to
+
+    On Error Resume Next ' Enable error handling
+
+    Dim replyComment As comment
+    Dim para As Paragraph
+    Dim commentRange As Range
+    Dim commentText As String
+
+    Set para = comment.Scope.Paragraphs(1)
+    Set commentRange = para.Range
+    commentText = commentRange.Text
+
+    For Each replyComment In ActiveDocument.Comments
+        If replyComment.Index < comment.Index Then
+            Set para = replyComment.Scope.Paragraphs(1)
+            Set commentRange = para.Range
+            If InStr(commentRange.Text, commentText) > 0 Then
+                GetCommentReplyTo = replyComment.Range.Text
+                Exit Function
+            End If
+        End If
+    Next replyComment
+
+    GetCommentReplyTo = "New Conversation"
+End Function
+
+Function GetCommentPageNumber(comment As comment, docStartPage As Long) As Long
+    ' Get the adjusted page number for the comment
+
+    On Error Resume Next ' Enable error handling
+
+    Dim commentRange As Range
+    Set commentRange = comment.Scope
+
+    ' Move the range to the start of the comment
+    commentRange.Collapse wdCollapseStart
+
+    ' Find the adjusted page number for the comment
+    Dim commentPage As Long
+    commentPage = commentRange.Information(wdActiveEndAdjustedPageNumber)
+
+    ' Calculate the adjusted page number
+    GetCommentPageNumber = docStartPage + commentPage - 1
+End Function
+
+Function GetSourceFileName(doc As Document) As String
+    ' Get the source file name without extension
+
+    Dim fileName As String
+    fileName = doc.FullName
+    GetSourceFileName = Left(fileName, InStrRev(fileName, ".") - 1)
+End Function
+
+Function GetDocumentStartPage(doc As Document) As Long
+    ' Get the starting page number of the document
+
+    On Error Resume Next ' Enable error handling
+
+    Dim docRange As Range
+    Set docRange = doc.Range
+
+    ' Find the starting page number of the document
+    Dim startPage As Long
+    startPage = docRange.Information(wdActiveEndAdjustedPageNumber)
+
+    GetDocumentStartPage = startPage
+End Function
+
+Sub RemoveAuthorSuffix(ByRef author As String)
+    ' Remove ":EX" or ":IN" suffix from the author's name
+    author = Replace(author, ":EX", "")
+    author = Replace(author, ":IN", "")
+End Sub
