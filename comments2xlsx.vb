@@ -71,11 +71,23 @@ Sub ExportComments()
         End With
     Next i
 
-    ' Save the Excel file with the desired name
+    ' Save the Excel file with the desired name after user confirmation
     Dim fileName As String
     fileName = GetSourceFileName(ActiveDocument) & "_comment_output_" & Format(Now(), "YYYY-MM-DD") & ".xlsx"
-    xlWB.SaveAs fileName
+    
+    ' Ask the user if they want to save the Excel file
+    Dim saveChoice As String
+    saveChoice = UCase(InputBox("Do you want to save the exported comments to Excel?" & vbCrLf & "Type 'YES' to save or 'NO' to cancel.", , "YES"))
 
+
+    If saveChoice = "YES" Then
+        xlWB.SaveAs fileName
+        MsgBox "Comments exported and saved to: " & fileName, vbInformation, "Export Successful"
+    Else
+        MsgBox "Export canceled. Comments were not saved.", vbExclamation, "Export Canceled"
+    End If
+    
+    
     Set xlWB = Nothing
     Set xlApp = Nothing
 End Sub
