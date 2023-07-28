@@ -77,7 +77,7 @@ Sub ExportComments()
     
     ' Ask the user if they want to save the Excel file
     Dim saveChoice As String
-    saveChoice = UCase(InputBox("Do you want to save the exported comments to Excel?" & vbCrLf & "Type 'YES' to save or 'NO' to cancel.", , "YES"))
+    saveChoice = UCase(InputBox("Do you want to save the exported comments to Excel?" & vbCrLf & "Type 'YES' to save or 'NO' to cancel." & vbCrLf & "(not case sensitive, Yes on default.)", , "YES"))
 
 
     If saveChoice = "YES" Then
