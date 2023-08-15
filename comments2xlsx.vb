@@ -21,20 +21,24 @@ Sub ExportComments()
     ' Set the heading row in Excel
     HeadingRow = 1
     With xlWB.Worksheets(1)
-        .Cells(HeadingRow, 1).Formula = "Comment ID"
-        .Cells(HeadingRow, 2).Formula = "Page"
-        .Cells(HeadingRow, 3).Formula = "Paragraph"
-        .Cells(HeadingRow, 5).Formula = "Thread"
-        .Cells(HeadingRow, 4).Formula = "Comment"
-        .Cells(HeadingRow, 6).Formula = "Reviewer"
-        .Cells(HeadingRow, 7).Formula = "Ministry"
-        .Cells(HeadingRow, 8).Formula = "Date"
-        .Cells(HeadingRow, 9).Formula = "Acceptance"
+        .Cells(HeadingRow, 1).Formula = "Version"
+        .Cells(HeadingRow, 2).Formula = "Comment ID"
+        .Cells(HeadingRow, 3).Formula = "Page"
+        .Cells(HeadingRow, 4).Formula = "Paragraph"
+        .Cells(HeadingRow, 6).Formula = "Thread"
+        .Cells(HeadingRow, 5).Formula = "Comment"
+        .Cells(HeadingRow, 7).Formula = "Reviewer"
+        .Cells(HeadingRow, 8).Formula = "Ministry"
+        .Cells(HeadingRow, 9).Formula = "Date"
+        .Cells(HeadingRow, 10).Formula = "Acceptance"
     End With
 
     ' Find the starting page number of the document
     Dim docStartPage As Long
     docStartPage = GetDocumentStartPage(ActiveDocument)
+    
+    ' Call the function to retrieve the version number
+    versionNumber = GetDocumentVersion(ActiveDocument)
 
     ' Loop through each comment in the document
     For i = 1 To ActiveDocument.Comments.Count
@@ -42,11 +46,12 @@ Sub ExportComments()
         strSection = ParentLevel(myRange.Paragraphs(1)) ' find the section heading for this comment
 
         With xlWB.Worksheets(1)
-            .Cells(i + HeadingRow, 1).Formula = ActiveDocument.Comments(i).Index
-            .Cells(i + HeadingRow, 2).Value = GetCommentPageNumber(ActiveDocument.Comments(i), docStartPage) ' Get the page number
-            .Cells(i + HeadingRow, 3).Value = strSection
-            .Cells(i + HeadingRow, 5).Value = GetCommentReplyTo(ActiveDocument.Comments(i)) ' Get the comment it was replying to
-            .Cells(i + HeadingRow, 4).Formula = ActiveDocument.Comments(i).Range
+            .Cells(i + HeadingRow, 1).Value = versionNumber ' Assign the version number directly
+            .Cells(i + HeadingRow, 2).Formula = ActiveDocument.Comments(i).Index
+            .Cells(i + HeadingRow, 3).Value = GetCommentPageNumber(ActiveDocument.Comments(i), docStartPage) ' Get the page number
+            .Cells(i + HeadingRow, 4).Value = strSection
+            .Cells(i + HeadingRow, 6).Value = GetCommentReplyTo(ActiveDocument.Comments(i)) ' Get the comment it was replying to
+            .Cells(i + HeadingRow, 5).Formula = ActiveDocument.Comments(i).Range
 
             Dim authorName As String
             Dim ministryCode As String ' New variable to hold the Ministry code
@@ -54,18 +59,18 @@ Sub ExportComments()
             ' Get the author name and extract the Ministry code
             ExtractAuthorAndMinistryCode ActiveDocument.Comments(i).author, authorName, ministryCode
 
-            .Cells(i + HeadingRow, 6).Value = authorName
+            .Cells(i + HeadingRow, 7).Value = authorName
             
             ' Remove ":EX" or ":IN" from the Ministry code
             ministryCode = RemoveEXINFromMinistryCode(ministryCode)
 
-            .Cells(i + HeadingRow, 7).Value = ministryCode ' Populate the Ministry column
+            .Cells(i + HeadingRow, 8).Value = ministryCode ' Populate the Ministry column
 
-            .Cells(i + HeadingRow, 8).Value = Format(ActiveDocument.Comments(i).Date, "DD-MM-YYYY") ' Format the date
-            .Cells(i + HeadingRow, 9).Formula = ActiveDocument.Comments(i).Done
+            .Cells(i + HeadingRow, 9).Value = Format(ActiveDocument.Comments(i).Date, "DD-MM-YYYY") ' Format the date
+            .Cells(i + HeadingRow, 10).Formula = ActiveDocument.Comments(i).Done
 
             ' Check if the paragraph is "Not a reply" and apply conditional formatting
-            If .Cells(i + HeadingRow, 5).Value = "New Thread" Then
+            If .Cells(i + HeadingRow, 6).Value = "New Thread" Then
                 .Rows(i + HeadingRow).Interior.Color = RGB(191, 225, 255) ' Light blue background
             End If
         End With
@@ -84,7 +89,7 @@ Sub ExportComments()
         xlWB.SaveAs fileName
         MsgBox "Comments exported and saved to: " & fileName, vbInformation, "Export Successful"
     Else
-        MsgBox "Export canceled. Comments were not saved.", vbExclamation, "Export Canceled"
+        MsgBox "Autosave canceled. Please save the excel spreadsheet manually.", vbExclamation, "Export Canceled"
     End If
     
     
@@ -136,7 +141,15 @@ Function GetCommentReplyTo(comment As comment) As String
             Set para = replyComment.Scope.Paragraphs(1)
             Set commentRange = para.Range
             If InStr(commentRange.Text, commentText) > 0 Then
-                GetCommentReplyTo = replyComment.Range.Text
+                Dim replyText As String
+                replyText = replyComment.Range.Text
+                Dim trimmedReplyText As String
+                If Len(replyText) > 50 Then
+                    trimmedReplyText = Left(replyText, 47) & "..."
+                Else
+                    trimmedReplyText = replyText
+                End If
+                GetCommentReplyTo = trimmedReplyText
                 Exit Function
             End If
         End If
@@ -144,6 +157,10 @@ Function GetCommentReplyTo(comment As comment) As String
 
     GetCommentReplyTo = "New Thread"
 End Function
+
+
+
+
 
 Function GetCommentPageNumber(comment As comment, docStartPage As Long) As Long
     ' Get the adjusted page number for the comment
@@ -206,4 +223,35 @@ Function RemoveEXINFromMinistryCode(ByVal code As String) As String
     ' Remove ":EX" or ":IN" from the Ministry code
     RemoveEXINFromMinistryCode = Replace(code, ":EX", "")
     RemoveEXINFromMinistryCode = Replace(RemoveEXINFromMinistryCode, ":IN", "")
+End Function
+
+Function GetDocumentVersion(doc As Document) As String
+    Dim versionRange As Range
+    Dim versionText As String
+    
+    ' Define the search range (first page)
+    Set versionRange = doc.Range
+    versionRange.Start = 0
+    versionRange.End = doc.Range.Information(wdVerticalPositionRelativeToPage) ' Set end of range to end of first page
+    
+    With versionRange.Find
+        .Text = "version"
+        .MatchCase = False ' Match regardless of capitalization
+        .Forward = False
+        .Wrap = wdFindStop
+        .Execute
+        If .Found Then
+            Dim foundLine As Range
+            Set foundLine = doc.Range(versionRange.Start, versionRange.End).Paragraphs(1).Range
+            versionText = Replace(foundLine.Text, "version", "", , , vbTextCompare)
+            versionText = Trim(versionText)
+            If IsNumeric(versionText) Then
+                GetDocumentVersion = "v" & versionText
+            Else
+                GetDocumentVersion = "no version number found"
+            End If
+        Else
+            GetDocumentVersion = "no version number found"
+        End If
+    End With
 End Function
