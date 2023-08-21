@@ -228,30 +228,34 @@ End Function
 Function GetDocumentVersion(doc As Document) As String
     Dim versionRange As Range
     Dim versionText As String
+    Dim page As Integer
     
-    ' Define the search range (first page)
-    Set versionRange = doc.Range
-    versionRange.Start = 0
-    versionRange.End = doc.Range.Information(wdVerticalPositionRelativeToPage) ' Set end of range to end of first page
+    ' Loop through pages 1 to 3
+    For page = 1 To 3
+        ' Define the search range for the current page
+        Set versionRange = doc.Range
+        versionRange.Start = doc.Range.GoTo(What:=wdGoToPage, Which:=wdGoToAbsolute, Count:=page).Start
+        versionRange.End = doc.Range.GoTo(What:=wdGoToPage, Which:=wdGoToAbsolute, Count:=page + 1).Start - 1
     
-    With versionRange.Find
-        .Text = "version"
-        .MatchCase = False ' Match regardless of capitalization
-        .Forward = False
-        .Wrap = wdFindStop
-        .Execute
-        If .Found Then
-            Dim foundLine As Range
-            Set foundLine = doc.Range(versionRange.Start, versionRange.End).Paragraphs(1).Range
-            versionText = Replace(foundLine.Text, "version", "", , , vbTextCompare)
-            versionText = Trim(versionText)
-            If IsNumeric(versionText) Then
-                GetDocumentVersion = "v" & versionText
-            Else
-                GetDocumentVersion = "no version number found"
+        With versionRange.Find
+            .Text = "version"
+            .MatchCase = False ' Match regardless of capitalization
+            .Forward = True ' Search forward on the current page
+            .Wrap = wdFindStop
+            .Execute
+            If .Found Then
+                Dim foundLine As Range
+                Set foundLine = doc.Range(versionRange.Start, versionRange.End).Paragraphs(1).Range
+                versionText = Replace(foundLine.Text, "version", "", , , vbTextCompare)
+                versionText = Trim(versionText)
+                If IsNumeric(versionText) Then
+                    GetDocumentVersion = "v" & versionText
+                    Exit Function ' Exit if version info is found on the current page
+                End If
             End If
-        Else
-            GetDocumentVersion = "no version number found"
-        End If
-    End With
+        End With
+    Next page
+    
+    ' If version info not found on pages 1 to 3
+    GetDocumentVersion = "not applicable"
 End Function
